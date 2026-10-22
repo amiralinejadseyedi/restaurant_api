@@ -1,0 +1,103 @@
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.database import Base, get_db
+
+
+TEST_DATABASE_URL = "sqlite://"
+
+test_engine = create_engine(
+    TEST_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+
+TestingSessionLocal = sessionmaker(
+    bind=test_engine,
+    autoflush=False,
+    autocommit=False,
+)
+
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@pytest.fixture
+def client():
+    Base.metadata.create_all(bind=test_engine)
+    app.dependency_overrides[get_db] = override_get_db
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=test_engine)
+
+
+def test_home(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "message": "restaurant api is running"
+    }
+
+
+def test_create_order(client):
+    response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Test Customer",
+            "food_name": "Koobideh",
+            "quantity": 2,
+            "price": 1000,
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["message"] == "Order created successfully"
+    assert data["order"]["customer_name"] == "Test Customer"
+    assert data["order"]["food_name"] == "Koobideh"
+    assert data["order"]["quantity"] == 2
+    assert data["order"]["price"] == 1000
+    assert "id" in data["order"]
+
+
+
+def test_create_order_with_invalid_quantity(client):
+    response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Test Customer",
+            "food_name": "Koobideh",
+            "quantity": 0,
+            "price": 1000,
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_delete_nonexistent_order(client):
+    response = client.delete("/orders/9999")
+
+    assert response.status_code == 404
+    assert response.json() == {
+    "detail": "order not found"
+    }
+
+
+
+

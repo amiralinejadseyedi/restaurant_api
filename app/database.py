@@ -1,13 +1,23 @@
+
+import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from collections.abc import Generator
 
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:///./restaurant.db"
+)
 
-DATABASE_URL = "sqlite:///./restaurant.db"
+connect_args = {}
+
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    connect_args=connect_args
 )
 
 SessionLocal = sessionmaker(
@@ -16,19 +26,15 @@ SessionLocal = sessionmaker(
     autocommit=False
 )
 
-
 class Base(DeclarativeBase):
     pass
-
-
 
 def get_db() -> Generator:
     db = SessionLocal()
     try:
-        yield db 
+        yield db
     finally:
         db.close()
-    
 
 
 

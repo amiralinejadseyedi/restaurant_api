@@ -1,7 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends , HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from fastapi import Depends
 from app.database import get_db
 from app.models import OrderModel
 
@@ -59,4 +58,45 @@ def get_orders(db:Session = Depends(get_db)):
     orders = db.query(OrderModel).all()
     return orders    
 
-                  
+
+@app.put("/orders/{order_id}", response_model=OrderResponse)
+def update_order(
+    order_id: int,
+    order:Order ,
+    db: Session = Depends(get_db)
+    ):
+    db_order = db.query(OrderModel).filter(
+        OrderModel.id == order_id).first()
+
+    if db_order == None:
+        raise HTTPException(status_code = 404 ,
+                             detail = "Order not found"
+                             )
+    
+    db_order.customer_name = order.customer_name
+    db_order.food_name = order.food_name
+    db_order.quantity = order.quantity
+    db_order.price = order.price
+
+    db.commit()
+    db.refresh(db_order)
+
+    return db_order
+
+
+@app.delete("/orders/{order_id}")
+def delete_order(order_id: int, 
+                  db: Session = Depends(get_db)
+                  ):
+    db_order = db.query(OrderModel).filter(
+        OrderModel.id == order_id
+    ).first()
+
+    if db_order == None:
+        raise HTTPException(status_code = 404 , detail = "order not found")    
+
+    db.delete(db_order)
+    db.commit()
+    return {"message": "Order deleted successfully"}
+
+    
