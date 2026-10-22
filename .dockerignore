@@ -1,7 +1,10 @@
+
 .venv/
 __pycache__/
 .pytest_cache/
 .git/
 .env
 *.pyc
-restaurant.db
+*.db
+*.sqlite
+*.sqlite3

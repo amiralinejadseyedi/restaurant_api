@@ -3,6 +3,9 @@ services:
   api:
     build: .
     container_name: restaurant-api-container
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
     environment:
