@@ -7,8 +7,8 @@ A RESTful API for managing restaurant orders, built with FastAPI, SQLAlchemy, an
 - Create, retrieve, update, and delete restaurant orders
 - Validate request data using Pydantic
 - Handle database errors with appropriate HTTP status codes
-- Manage database schema changes using Alembic
-- Run the API and PostgreSQL using Docker Compose
+- Manage database schema changes using Alembic, applied automatically on startup
+- Run the API, migrations, and PostgreSQL using Docker Compose
 - Test API endpoints using Pytest
 
 ## Tech Stack
@@ -100,10 +100,21 @@ docker compose logs db
 
 ## Database Migrations
 
-Apply the existing Alembic migrations after the API container is running:
+Migrations run automatically. When you start the application, a one-off `migrate` service waits for PostgreSQL to become healthy, runs `alembic upgrade head`, and exits. The `api` service starts only after the migration finishes successfully, so a fresh database gets its schema without any manual step.
+
+Check the migration result:
 
 ```bash
-docker compose exec api alembic upgrade head
+docker compose logs migrate
+docker compose ps -a
+```
+
+The `migrate` service should show `Exited (0)`. It is not listed by `docker compose ps` alone because it stops after running.
+
+To run a migration manually (for example, after adding a new revision):
+
+```bash
+docker compose run --rm migrate
 ```
 
 The migration configuration reads `DATABASE_URL` from the environment, allowing Alembic to connect to the configured PostgreSQL database.
