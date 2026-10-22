@@ -4,10 +4,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
-
+from unittest.mock import patch
 from app.main import app
 from app.database import Base, get_db
-
+from sqlalchemy.exc import SQLAlchemyError
 
 TEST_DATABASE_URL = "sqlite://"
 
@@ -199,3 +199,114 @@ def test_update_nonexistent_order(client):
     assert response.json() == {"detail": "Order not found"}
 
 
+def test_create_order_with_spaces_only_name(client):
+    response = client.post(
+        "/orders",
+        json={
+            "customer_name": "   ",
+            "food_name": "Koobideh",
+            "quantity": 2,
+            "price": 1000,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+    from sqlalchemy.exc import SQLAlchemyError
+from unittest.mock import patch
+
+
+def test_create_order_database_error(client):
+    with patch(
+        "app.main.Session.commit",
+        side_effect=SQLAlchemyError("Database failure")
+    ):
+        response = client.post(
+            "/orders",
+            json={
+                "customer_name": "Amir",
+                "food_name": "Koobideh",
+                "quantity": 2,
+                "price": 1000,
+            },
+        )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Database error while creating order"
+    }
+
+
+
+def test_update_order_database_error(client):
+    create_response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Amir",
+            "food_name": "Koobideh",
+            "quantity": 2,
+            "price": 1000,
+        },
+    )
+    assert create_response.status_code == 201
+
+    order_id = create_response.json()["order"]["id"]
+
+    with patch(
+        "app.main.Session.commit",
+        side_effect=SQLAlchemyError("Database failure")
+    ):
+        response = client.put(
+            f"/orders/{order_id}",
+            json={
+                "customer_name": "Amir Updated",
+                "food_name": "Joojeh",
+                "quantity": 3,
+                "price": 1500,
+            },
+        )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Database error while updating order"
+    }
+
+
+
+def test_delete_order_database_error(client):
+    create_response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Amir",
+            "food_name": "Koobideh",
+            "quantity": 2,
+            "price": 1000,
+        },
+    )
+    assert create_response.status_code == 201
+
+    order_id = create_response.json()["order"]["id"]
+
+    with patch(
+        "app.main.Session.commit",
+        side_effect=SQLAlchemyError("Database failure")
+    ):
+        response = client.delete(f"/orders/{order_id}")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Database error while deleting order"
+    }
+
+def test_get_orders_database_error(client):
+    with patch(
+        "app.main.Session.execute",
+        side_effect=SQLAlchemyError("Database failure")
+    ):
+        response = client.get("/orders")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Database error while retrieving orders"
+    }
