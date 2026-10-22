@@ -100,4 +100,102 @@ def test_delete_nonexistent_order(client):
 
 
 
+def test_get_orders(client):
+    create_response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Amir",
+            "food_name": "Koobideh",
+            "quantity": 2,
+            "price": 1000,
+        },
+    )
+    assert create_response.status_code == 201
+
+    response = client.get("/orders")
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["customer_name"] == "Amir"
+
+
+def test_update_order(client):
+    create_response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Amir",
+            "food_name": "Koobideh",
+            "quantity": 2,
+            "price": 1000,
+        },
+    )
+    assert create_response.status_code == 201
+    order_id = create_response.json()["order"]["id"]
+
+    response = client.put(
+        f"/orders/{order_id}",
+        json={
+            "customer_name": "Amir Updated",
+            "food_name": "Joojeh",
+            "quantity": 3,
+            "price": 1500,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["customer_name"] == "Amir Updated"
+    assert response.json()["food_name"] == "Joojeh"
+    assert response.json()["quantity"] == 3
+    assert response.json()["price"] == 1500
+
+
+def test_delete_order(client):
+    create_response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Amir",
+            "food_name": "Koobideh",
+            "quantity": 2,
+            "price": 1000,
+        },
+    )
+    assert create_response.status_code == 201
+    order_id = create_response.json()["order"]["id"]
+
+    delete_response = client.delete(f"/orders/{order_id}")
+
+    assert delete_response.status_code == 200
+
+    get_response = client.get("/orders")
+    assert get_response.status_code == 200
+    assert get_response.json() == []
+
+def test_create_order_with_invalid_price(client):
+    response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Test Customer",
+            "food_name": "Koobideh",
+            "quantity": 2,
+            "price": 0,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_nonexistent_order(client):
+    response = client.put(
+        "/orders/9999",
+        json={
+            "customer_name": "Test Customer",
+            "food_name": "Koobideh",
+            "quantity": 2,
+            "price": 1000,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Order not found"}
+
 
